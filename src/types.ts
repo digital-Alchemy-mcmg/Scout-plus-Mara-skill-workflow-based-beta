@@ -27,9 +27,6 @@ export interface ExecutionGateState {
   highestPassedStage: number;
 }
 
-// ----------------------------------------------------
-// SCHM-01: Demand Primitives & SCOUT Types
-// ----------------------------------------------------
 export type DemandRelationship = 'AUTHORITY' | 'COORDINATION' | 'SUPPORT';
 export type DemandType = 'TRAIT' | 'SKILL' | 'ABILITY' | 'KNOWLEDGE';
 export type MatchType = 'HOT_MATCH' | 'COLD_MATCH';
@@ -60,7 +57,7 @@ export interface ClassificationAnchor {
   code: string;
   title: string;
   rationale: string;
-  matchType: MatchType; // model hypothesis only
+  matchType: MatchType;
   system: 'NAICS' | 'ONET_SOC';
   validationStatus?: ClassificationValidationStatus;
   validationSource?: string;
@@ -81,16 +78,13 @@ export interface QueryBundle {
   onetAnchor: ClassificationAnchor;
   demandPrimitives: DemandPrimitive[];
   negativeSpace: NegativeSpaceAssertion[];
-  /** Protected YELLOW decision: ownership/count semantics are intentionally not changed here. */
+  /** Protected YELLOW decision: receptor ownership/count is intentionally not changed by this repair. */
   activeReceptors: EvidenceDomain[];
   scoutExhaust: ScoutExhaustItem[];
   timestamp: string;
   executionState?: ExecutionGateState;
 }
 
-// ----------------------------------------------------
-// SCHM-02: Spatial DNA & Candidate Core
-// ----------------------------------------------------
 export type EvidenceDomain =
   | 'WORK_HISTORY'
   | 'EDUCATION_COMPETENCY'
@@ -119,6 +113,7 @@ export type EvidenceSourceClass =
 export type EvidenceIndependence = 'INDEPENDENT' | 'DEPENDENT' | 'UNKNOWN';
 export type CorroborationState = 'NONE' | 'CORROBORATED' | 'CONVERGENT';
 export type ContradictionState = 'NONE' | 'CONTRADICTED';
+export type CorroborationType = 'CONVERGENT' | 'INDEPENDENT'; // legacy display compatibility only
 
 export interface EvidencePacket {
   evidence_id: string;
@@ -128,27 +123,19 @@ export interface EvidencePacket {
   propositionId: string;
   candidateRelationship: CandidateRelationship;
   sourceClass: EvidenceSourceClass;
-  authorityCeiling: number; // 0.0 - 1.0; distinct from extraction certainty
-  extractionConfidence: number; // 0.0 - 1.0
+  authorityCeiling: number;
+  extractionConfidence: number;
   authorityVerified: boolean;
   sourceLineageId: string;
   independence: EvidenceIndependence;
   corroborationState: CorroborationState;
   contradictionState: ContradictionState;
   convergesWithEvidenceIds: string[];
-  provenance: {
-    source: string;
-    section: string;
-    rawQuote?: string;
-  };
+  provenance: { source: string; section: string; rawQuote?: string };
   timestamp?: string;
   attributes: Record<string, string | number | boolean | string[]>;
 }
 
-/**
- * Transitional input shape for the pre-repair sample fixtures only.
- * Runtime normalization MUST convert this into EvidencePacket and reject IDENTITY as evidence.
- */
 export interface LegacyEvidencePacket {
   evidence_id: string;
   domain: string;
@@ -156,11 +143,7 @@ export interface LegacyEvidencePacket {
   entity: string;
   authority?: 'DIRECT' | 'CONTRIBUTORY' | 'STATIONARY';
   confidence?: number;
-  provenance: {
-    source: string;
-    section: string;
-    rawQuote?: string;
-  };
+  provenance: { source: string; section: string; rawQuote?: string };
   timestamp?: string;
   attributes: Record<string, string | number | boolean | string[]>;
 }
@@ -179,17 +162,8 @@ export interface CanonicalCandidateSpatialDNA {
   evidenceRegistry: Record<EvidenceDomain, EvidencePacket[]>;
 }
 
-// ----------------------------------------------------
-// MARA Traversal, Binding, and Spatial Geometry Types
-// ----------------------------------------------------
 /** Protected YELLOW decision: semantic bands are retained, not re-decided by this repair. */
-export type SemanticBand =
-  | 'CEILING'
-  | 'ABOVE_BASELINE'
-  | 'BASELINE'
-  | 'BELOW_BASELINE'
-  | 'FLOOR';
-
+export type SemanticBand = 'CEILING' | 'ABOVE_BASELINE' | 'BASELINE' | 'BELOW_BASELINE' | 'FLOOR';
 export type BindingStatus = 'SUPPORTED' | 'CONTRADICTED' | 'UNSUPPORTED';
 
 export interface BoundAtom {
@@ -205,33 +179,23 @@ export interface BoundAtom {
   independence?: EvidenceIndependence;
   corroborationState?: CorroborationState;
   contradictionState?: ContradictionState;
+  /** Deprecated legacy field; deterministic validation must not infer independence from it. */
+  corroborationType?: CorroborationType;
 }
 
-export type MaraExhaustReason =
-  | 'unsupported'
-  | 'non_demonstrated'
-  | 'contradicted'
-  | 'insufficient_authority';
+export type MaraExhaustReason = 'unsupported' | 'non_demonstrated' | 'contradicted' | 'insufficient_authority';
 
 export interface MaraExhaustItem {
   id: string;
   demandPrimitive: DemandPrimitive;
   reason: MaraExhaustReason;
   detailedAnalysis: string;
-  /** Does not assert candidate deficiency; records the state of the current evidence bind. */
   severity: 'CRITICAL_GAP' | 'SECONDARY_GAP' | 'NEUTRAL_ABSENCE';
 }
 
 export interface FrozenRenderContext {
-  candidate: {
-    candidateId: string;
-    name: string;
-    location?: string;
-  };
-  target: {
-    targetRoleIdentifier: string;
-    purpose: string;
-  };
+  candidate: { candidateId: string; name: string; location?: string };
+  target: { targetRoleIdentifier: string; purpose: string };
   demands: DemandPrimitive[];
   evidence: EvidencePacket[];
 }
@@ -245,11 +209,7 @@ export interface FrozenSnapshot {
   activeWalls: EvidenceDomain[];
   boundAtoms: BoundAtom[];
   maraExhaust: MaraExhaustItem[];
-  projectionCenter: {
-    x: number;
-    y: number;
-    z: number;
-  };
+  projectionCenter: { x: number; y: number; z: number };
   geometricState: {
     ceilingCount: number;
     aboveBaselineCount: number;
@@ -258,25 +218,15 @@ export interface FrozenSnapshot {
     floorCount: number;
     alignmentRatio: number;
   };
-  /** Separate from geometric Floor. */
-  projectionSufficiency?: {
-    satisfied: boolean;
-    reasons: string[];
-  };
+  /** Separate from geometric Floor. null means the policy threshold is intentionally unresolved. */
+  projectionSufficiency?: { satisfied: boolean | null; reasons: string[] };
   renderContext?: FrozenRenderContext;
-  boundaryIdentity?: {
-    queryTimestamp: string;
-    candidateId: string;
-    schemaVersion: string;
-  };
+  boundaryIdentity?: { queryTimestamp: string; candidateId: string; schemaVersion: string };
   executionState?: ExecutionGateState;
   isBlocked: boolean;
   blockReason?: string;
 }
 
-// ----------------------------------------------------
-// ARTIFACT MODEL: Rendered Output Types
-// ----------------------------------------------------
 export type ArtifactType =
   | 'TARGET_RESOLVED_RESUME'
   | 'RECRUITER_SUMMARY_BRIEF'
@@ -298,10 +248,7 @@ export interface TargetResolvedArtifact {
   candidateName: string;
   targetRole: string;
   content: string;
-  sections: Array<{
-    heading: string;
-    content: string[];
-  }>;
+  sections: Array<{ heading: string; content: string[] }>;
   traceabilityLinks: TraceabilityLink[];
   generatedAt: string;
   freezeHash: string;
