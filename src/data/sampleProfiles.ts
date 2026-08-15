@@ -14,11 +14,13 @@ export interface SampleCase {
   rawJobPosting: string;
   candidateDNA: CandidateSpatialDNA;
   precomputedQueryBundle: QueryBundle;
-  precomputedFrozenSnapshot: FrozenSnapshot;
-  precomputedArtifact: TargetResolvedArtifact;
+  precomputedFrozenSnapshot: FrozenSnapshot | null;
+  precomputedArtifact: TargetResolvedArtifact | null;
 }
 
-const elenaWork: EvidencePacket = {
+const evidence = (packet: EvidencePacket): EvidencePacket => packet;
+
+const elenaWork = evidence({
   evidence_id: 'EV-WH-01',
   domain: 'WORK_HISTORY',
   governing_verb: 'Orchestrated',
@@ -36,29 +38,9 @@ const elenaWork: EvidencePacket = {
   convergesWithEvidenceIds: ['EV-CW-01', 'EV-TES-01'],
   provenance: { source: 'Veloce_Career_Summary.pdf', section: 'Experience: Operations Lead' },
   attributes: { unitVolume: '45,000 seasonal samples/yr', onTimeRate: '97.4%' },
-};
+});
 
-const elenaCreative: EvidencePacket = {
-  evidence_id: 'EV-CW-01',
-  domain: 'CREATIVE_WORKS',
-  governing_verb: 'Architected',
-  entity: 'Automated Sample Status Web Portal connecting overseas factories with US R&D design benches',
-  propositionId: 'PROP-ELENA-SAMPLE-PORTAL',
-  candidateRelationship: 'DIRECT',
-  sourceClass: 'CANDIDATE_SUPPLIED_HISTORY',
-  authorityCeiling: 0.8,
-  extractionConfidence: 0.91,
-  authorityVerified: false,
-  sourceLineageId: 'LINEAGE-VELOCE-TOOLING-PORTFOLIO',
-  independence: 'DEPENDENT',
-  corroborationState: 'CONVERGENT',
-  contradictionState: 'NONE',
-  convergesWithEvidenceIds: ['EV-WH-01', 'EV-TES-01'],
-  provenance: { source: 'Internal_Ops_Tooling_Portfolio.pdf', section: 'Software Implementations' },
-  attributes: { dailyActiveUsers: 85, latencyReductionHours: 48 },
-};
-
-const elenaEducation: EvidencePacket = {
+const elenaEducation = evidence({
   evidence_id: 'EV-EDU-01',
   domain: 'EDUCATION_COMPETENCY',
   governing_verb: 'Completed',
@@ -76,9 +58,29 @@ const elenaEducation: EvidencePacket = {
   convergesWithEvidenceIds: [],
   provenance: { source: 'Academic_Transcript_UW.pdf', section: 'Degree Award' },
   attributes: { honors: 'Magna Cum Laude', graduationYear: 2018 },
-};
+});
 
-const elenaPsychometric: EvidencePacket = {
+const elenaCreative = evidence({
+  evidence_id: 'EV-CW-01',
+  domain: 'CREATIVE_WORKS',
+  governing_verb: 'Architected',
+  entity: 'Automated Sample Status Web Portal connecting overseas factories with US R&D design benches',
+  propositionId: 'PROP-ELENA-SAMPLE-PORTAL',
+  candidateRelationship: 'DIRECT',
+  sourceClass: 'CANDIDATE_SUPPLIED_HISTORY',
+  authorityCeiling: 0.8,
+  extractionConfidence: 0.91,
+  authorityVerified: false,
+  sourceLineageId: 'LINEAGE-VELOCE-TOOLING-PORTFOLIO',
+  independence: 'DEPENDENT',
+  corroborationState: 'CONVERGENT',
+  contradictionState: 'NONE',
+  convergesWithEvidenceIds: ['EV-WH-01', 'EV-TES-01'],
+  provenance: { source: 'Internal_Ops_Tooling_Portfolio.pdf', section: 'Software Implementations' },
+  attributes: { dailyActiveUsers: 85, latencyReductionHours: 48 },
+});
+
+const elenaPsychometric = evidence({
   evidence_id: 'EV-PSY-01',
   domain: 'PSYCHOMETRICS',
   governing_verb: 'Demonstrated',
@@ -96,9 +98,9 @@ const elenaPsychometric: EvidencePacket = {
   convergesWithEvidenceIds: [],
   provenance: { source: 'Leadership_Assessment_Hogan.pdf', section: 'Stress Profile' },
   attributes: { composureIndex: '94th percentile', executionFocus: 'High' },
-};
+});
 
-const elenaTestimony: EvidencePacket = {
+const elenaTestimony = evidence({
   evidence_id: 'EV-TES-01',
   domain: 'TESTIMONY_BEHAVIOR',
   governing_verb: 'Commended',
@@ -116,7 +118,7 @@ const elenaTestimony: EvidencePacket = {
   convergesWithEvidenceIds: ['EV-WH-01', 'EV-CW-01'],
   provenance: { source: 'Executive_Recommendation_Letter.pdf', section: 'Direct Quote' },
   attributes: { recommender: 'VP Global Sourcing, Veloce' },
-};
+});
 
 const elenaCandidate: CandidateSpatialDNA = {
   candidateId: 'cand-elena-rostova-01',
@@ -159,118 +161,25 @@ const elenaQuery: QueryBundle = {
     system: 'ONET_SOC',
     validationStatus: 'UNVERIFIED',
   },
-  demandPrimitives: [
-    {
-      id: 'DP-01',
-      actor: 'Incumbent',
-      action: 'Maintains visibility',
-      object: 'Sample inventory and global vendor production pipelines',
-      relationship: 'COORDINATION',
-      mechanism: 'Digital tracking systems and vendor milestone check-ins',
-      effect: 'Prototype assets arrive without scheduling slip',
-      demand_type: 'ABILITY',
-      provenance: 'Duties paragraph 1',
-      isCritical: true,
-    },
-  ],
-  negativeSpace: [
-    {
-      id: 'NS-01',
-      assertion: 'NOT a Creative Garment Fashion Designer',
-      reason: 'The source duties are operational rather than aesthetic design authority.',
-      sourceText: 'Operational duty distribution',
-    },
-  ],
+  demandPrimitives: [{
+    id: 'DP-01', actor: 'Incumbent', action: 'Maintains visibility',
+    object: 'Sample inventory and global vendor production pipelines', relationship: 'COORDINATION',
+    mechanism: 'Digital tracking systems and vendor milestone check-ins', effect: 'Prototype assets arrive without scheduling slip',
+    demand_type: 'ABILITY', provenance: 'Duties paragraph 1', isCritical: true,
+  }],
+  negativeSpace: [{
+    id: 'NS-01', assertion: 'NOT a Creative Garment Fashion Designer',
+    reason: 'The source duties are operational rather than aesthetic design authority.', sourceText: 'Operational duty distribution',
+  }],
   activeReceptors: ['WORK_HISTORY', 'CREATIVE_WORKS', 'TESTIMONY_BEHAVIOR', 'EDUCATION_COMPETENCY'],
-  scoutExhaust: [
-    {
-      id: 'SE-01',
-      text: 'rockstar Senior Operations Manager who thrives in a fast-paced environment',
-      reason: 'MARKETING_FLUFF',
-      originalLocation: 'About Us',
-    },
-  ],
+  scoutExhaust: [{
+    id: 'SE-01', text: 'rockstar Senior Operations Manager who thrives in a fast-paced environment',
+    reason: 'MARKETING_FLUFF', originalLocation: 'About Us',
+  }],
   timestamp: '2026-08-14T20:30:00Z',
 };
 
-const elenaSnapshot: FrozenSnapshot = {
-  schemaVersion: '2026.08.15-repair-1',
-  freezeHash: 'fixture-elena-requires-runtime-rehash',
-  freezeTimestamp: '2026-08-14T20:30:15Z',
-  candidateId: 'cand-elena-rostova-01',
-  targetRoleIdentifier: 'Senior Operations & Production Manager (Apex)',
-  activeWalls: ['WORK_HISTORY', 'CREATIVE_WORKS', 'TESTIMONY_BEHAVIOR', 'EDUCATION_COMPETENCY'],
-  boundAtoms: [
-    {
-      demandId: 'DP-01',
-      evidenceId: 'EV-WH-01',
-      semanticBand: 'CEILING',
-      score: 0.98,
-      rationale: 'Candidate history supports global sample-pipeline coordination.',
-      bandOffset: 0.95,
-      propositionId: 'PROP-ELENA-SAMPLE-PIPELINE',
-      sourceLineageIds: ['LINEAGE-VELOCE-CAREER-SUMMARY'],
-      corroboratingEvidenceIds: ['EV-CW-01', 'EV-TES-01'],
-      independence: 'DEPENDENT',
-      corroborationState: 'CORROBORATED',
-      contradictionState: 'NONE',
-    },
-  ],
-  maraExhaust: [],
-  projectionCenter: { x: 0.88, y: 0.92, z: 0.85 },
-  geometricState: {
-    ceilingCount: 1,
-    aboveBaselineCount: 0,
-    baselineCount: 0,
-    belowBaselineCount: 0,
-    floorCount: 0,
-    alignmentRatio: 1,
-  },
-  projectionSufficiency: {
-    satisfied: null,
-    reasons: ['Protected YELLOW decision: no projection-sufficiency threshold is asserted by this fixture.'],
-  },
-  renderContext: {
-    candidate: { candidateId: 'cand-elena-rostova-01', name: 'Elena Rostova', location: 'Seattle, WA' },
-    target: { targetRoleIdentifier: 'Senior Operations & Production Manager (Apex)', purpose: elenaQuery.corePurpose },
-    demands: elenaQuery.demandPrimitives,
-    evidence: [elenaWork, elenaCreative, elenaTestimony, elenaEducation],
-  },
-  boundaryIdentity: {
-    queryTimestamp: elenaQuery.timestamp,
-    candidateId: 'cand-elena-rostova-01',
-    schemaVersion: '2026.08.15-repair-1',
-  },
-  isBlocked: false,
-};
-
-const elenaArtifact: TargetResolvedArtifact = {
-  id: 'art-elena-01',
-  type: 'TARGET_RESOLVED_RESUME',
-  title: 'Target-Resolved Executive Operations Portfolio: Elena Rostova',
-  candidateName: 'Elena Rostova',
-  targetRole: 'Senior Operations & Production Manager',
-  content: 'Orchestrated global sample tracking across four Tier-1 facilities [EV-WH-01].',
-  sections: [
-    {
-      heading: 'Target-Bound Operational Capabilities',
-      content: ['Orchestrated global sample tracking across four Tier-1 facilities [EV-WH-01].'],
-    },
-  ],
-  traceabilityLinks: [
-    {
-      artifactSentenceIndex: 0,
-      sentenceText: 'Orchestrated global sample tracking across four Tier-1 facilities [EV-WH-01].',
-      boundAtom: elenaSnapshot.boundAtoms[0],
-      evidencePacket: elenaWork,
-      demandPrimitive: elenaQuery.demandPrimitives[0],
-    },
-  ],
-  generatedAt: '2026-08-14T20:30:20Z',
-  freezeHash: elenaSnapshot.freezeHash,
-};
-
-const marcusWork: EvidencePacket = {
+const marcusWork = evidence({
   evidence_id: 'EV-SYS-WH-01',
   domain: 'WORK_HISTORY',
   governing_verb: 'Authored',
@@ -288,9 +197,9 @@ const marcusWork: EvidencePacket = {
   convergesWithEvidenceIds: ['EV-SYS-CW-01', 'EV-SYS-TES-01'],
   provenance: { source: 'HyperMesh_Tech_Report.pdf', section: 'Core Engine Architecture' },
   attributes: { language: 'Rust', throughput: '1.2M writes/sec', zeroLoss: true },
-};
+});
 
-const marcusEducation: EvidencePacket = {
+const marcusEducation = evidence({
   evidence_id: 'EV-SYS-EDU-01',
   domain: 'EDUCATION_COMPETENCY',
   governing_verb: 'Completed',
@@ -308,9 +217,9 @@ const marcusEducation: EvidencePacket = {
   convergesWithEvidenceIds: [],
   provenance: { source: 'CMU_Diploma.pdf', section: 'Master Degree' },
   attributes: { thesis: 'Deterministic Fault Injection in Consensus Protocols' },
-};
+});
 
-const marcusCreative: EvidencePacket = {
+const marcusCreative = evidence({
   evidence_id: 'EV-SYS-CW-01',
   domain: 'CREATIVE_WORKS',
   governing_verb: 'Published',
@@ -328,9 +237,9 @@ const marcusCreative: EvidencePacket = {
   convergesWithEvidenceIds: ['EV-SYS-WH-01'],
   provenance: { source: 'GitHub_Repository.json', section: 'Open Source' },
   attributes: { stars: 1420 },
-};
+});
 
-const marcusPsychometric: EvidencePacket = {
+const marcusPsychometric = evidence({
   evidence_id: 'EV-SYS-PSY-01',
   domain: 'PSYCHOMETRICS',
   governing_verb: 'Demonstrated',
@@ -348,9 +257,9 @@ const marcusPsychometric: EvidencePacket = {
   convergesWithEvidenceIds: [],
   provenance: { source: 'Peer_Review_Assessments.pdf', section: 'Cognitive Style' },
   attributes: { methodology: 'Formal invariants' },
-};
+});
 
-const marcusTestimony: EvidencePacket = {
+const marcusTestimony = evidence({
   evidence_id: 'EV-SYS-TES-01',
   domain: 'TESTIMONY_BEHAVIOR',
   governing_verb: 'Validated',
@@ -368,7 +277,7 @@ const marcusTestimony: EvidencePacket = {
   convergesWithEvidenceIds: ['EV-SYS-WH-01'],
   provenance: { source: 'CTO_Reference_Note.pdf', section: 'Evaluation' },
   attributes: { evaluator: 'CTO, HyperMesh Systems' },
-};
+});
 
 const marcusCandidate: CandidateSpatialDNA = {
   candidateId: 'cand-marcus-vance-02',
@@ -396,130 +305,31 @@ const marcusQuery: QueryBundle = {
   corePurpose: 'Guarantees linearizable state storage and cluster stability across hardware and network faults.',
   coreMetaphor: 'Consensus Architect & State Machine Invariant Guardian',
   naicsAnchor: {
-    code: '541511',
-    title: 'Custom Computer Programming Services',
+    code: '541511', title: 'Custom Computer Programming Services',
     rationale: 'Model classification based on low-level distributed systems runtime development.',
-    matchType: 'HOT_MATCH',
-    system: 'NAICS',
-    validationStatus: 'UNVERIFIED',
+    matchType: 'HOT_MATCH', system: 'NAICS', validationStatus: 'UNVERIFIED',
   },
   onetAnchor: {
-    code: '15-1252.00',
-    title: 'Software Developers',
+    code: '15-1252.00', title: 'Software Developers',
     rationale: 'Model classification based on core systems and protocol-concurrency engineering.',
-    matchType: 'HOT_MATCH',
-    system: 'ONET_SOC',
-    validationStatus: 'UNVERIFIED',
+    matchType: 'HOT_MATCH', system: 'ONET_SOC', validationStatus: 'UNVERIFIED',
   },
-  demandPrimitives: [
-    {
-      id: 'DP-SYS-01',
-      actor: 'Incumbent',
-      action: 'Implements consensus state machines',
-      object: 'Zero-loss replication protocol engines in Rust',
-      relationship: 'AUTHORITY',
-      mechanism: 'Raft/Paxos implementation and formal verification',
-      effect: 'Guarantees linearizability and zero data loss under network partitions',
-      demand_type: 'ABILITY',
-      provenance: 'Duties paragraph 1',
-      isCritical: true,
-    },
-  ],
-  negativeSpace: [
-    {
-      id: 'NS-SYS-01',
-      assertion: 'NOT a Frontend/Fullstack Web Developer',
-      reason: 'The duties concern low-level storage and consensus protocols rather than presentation-layer work.',
-      sourceText: 'Scope isolation from web layer',
-    },
-  ],
+  demandPrimitives: [{
+    id: 'DP-SYS-01', actor: 'Incumbent', action: 'Implements consensus state machines',
+    object: 'Zero-loss replication protocol engines in Rust', relationship: 'AUTHORITY',
+    mechanism: 'Raft/Paxos implementation and formal verification', effect: 'Guarantees linearizability and zero data loss under network partitions',
+    demand_type: 'ABILITY', provenance: 'Duties paragraph 1', isCritical: true,
+  }],
+  negativeSpace: [{
+    id: 'NS-SYS-01', assertion: 'NOT a Frontend/Fullstack Web Developer',
+    reason: 'The duties concern low-level storage and consensus protocols rather than presentation-layer work.', sourceText: 'Scope isolation from web layer',
+  }],
   activeReceptors: ['WORK_HISTORY', 'EDUCATION_COMPETENCY', 'CREATIVE_WORKS', 'TESTIMONY_BEHAVIOR'],
-  scoutExhaust: [
-    {
-      id: 'SE-SYS-01',
-      text: '10x coding ninja and visionary systems rockstar',
-      reason: 'MARKETING_FLUFF',
-      originalLocation: 'Intro paragraph',
-    },
-  ],
+  scoutExhaust: [{
+    id: 'SE-SYS-01', text: '10x coding ninja and visionary systems rockstar',
+    reason: 'MARKETING_FLUFF', originalLocation: 'Intro paragraph',
+  }],
   timestamp: '2026-08-14T20:30:00Z',
-};
-
-const marcusSnapshot: FrozenSnapshot = {
-  schemaVersion: '2026.08.15-repair-1',
-  freezeHash: 'fixture-marcus-requires-runtime-rehash',
-  freezeTimestamp: '2026-08-14T20:30:15Z',
-  candidateId: 'cand-marcus-vance-02',
-  targetRoleIdentifier: 'Staff Distributed Systems Engineer (ChronoScale)',
-  activeWalls: ['WORK_HISTORY', 'EDUCATION_COMPETENCY', 'CREATIVE_WORKS', 'TESTIMONY_BEHAVIOR'],
-  boundAtoms: [
-    {
-      demandId: 'DP-SYS-01',
-      evidenceId: 'EV-SYS-WH-01',
-      semanticBand: 'CEILING',
-      score: 0.99,
-      rationale: 'Documented production Raft-engine implementation supports the demand.',
-      bandOffset: 0.98,
-      propositionId: 'PROP-MARCUS-RAFT-ENGINE',
-      sourceLineageIds: ['LINEAGE-HYPERMESH-TECH-REPORT'],
-      corroboratingEvidenceIds: ['EV-SYS-CW-01', 'EV-SYS-TES-01'],
-      independence: 'INDEPENDENT',
-      corroborationState: 'CONVERGENT',
-      contradictionState: 'NONE',
-    },
-  ],
-  maraExhaust: [],
-  projectionCenter: { x: 0.95, y: 0.96, z: 0.93 },
-  geometricState: {
-    ceilingCount: 1,
-    aboveBaselineCount: 0,
-    baselineCount: 0,
-    belowBaselineCount: 0,
-    floorCount: 0,
-    alignmentRatio: 1,
-  },
-  projectionSufficiency: {
-    satisfied: null,
-    reasons: ['Protected YELLOW decision: no projection-sufficiency threshold is asserted by this fixture.'],
-  },
-  renderContext: {
-    candidate: { candidateId: 'cand-marcus-vance-02', name: 'Marcus Vance', location: 'Austin, TX' },
-    target: { targetRoleIdentifier: 'Staff Distributed Systems Engineer (ChronoScale)', purpose: marcusQuery.corePurpose },
-    demands: marcusQuery.demandPrimitives,
-    evidence: [marcusWork, marcusEducation, marcusCreative, marcusTestimony],
-  },
-  boundaryIdentity: {
-    queryTimestamp: marcusQuery.timestamp,
-    candidateId: 'cand-marcus-vance-02',
-    schemaVersion: '2026.08.15-repair-1',
-  },
-  isBlocked: false,
-};
-
-const marcusArtifact: TargetResolvedArtifact = {
-  id: 'art-marcus-01',
-  type: 'TARGET_RESOLVED_RESUME',
-  title: 'Target-Resolved Technical Portfolio: Marcus Vance',
-  candidateName: 'Marcus Vance',
-  targetRole: 'Staff Distributed Systems Engineer',
-  content: 'Authored a production Raft consensus engine in Rust supporting 1.2M writes/sec [EV-SYS-WH-01].',
-  sections: [
-    {
-      heading: 'Core Distributed Systems Capabilities',
-      content: ['Authored a production Raft consensus engine in Rust supporting 1.2M writes/sec [EV-SYS-WH-01].'],
-    },
-  ],
-  traceabilityLinks: [
-    {
-      artifactSentenceIndex: 0,
-      sentenceText: 'Authored a production Raft consensus engine in Rust supporting 1.2M writes/sec [EV-SYS-WH-01].',
-      boundAtom: marcusSnapshot.boundAtoms[0],
-      evidencePacket: marcusWork,
-      demandPrimitive: marcusQuery.demandPrimitives[0],
-    },
-  ],
-  generatedAt: '2026-08-14T20:30:20Z',
-  freezeHash: marcusSnapshot.freezeHash,
 };
 
 export const SAMPLE_CASES: SampleCase[] = [
@@ -537,8 +347,8 @@ Company: Apex Performance Labs
 - Enforces quality assurance acceptance criteria across pre-production garment batches.`,
     candidateDNA: elenaCandidate,
     precomputedQueryBundle: elenaQuery,
-    precomputedFrozenSnapshot: elenaSnapshot,
-    precomputedArtifact: elenaArtifact,
+    precomputedFrozenSnapshot: null,
+    precomputedArtifact: null,
   },
   {
     id: 'case-systems-eng',
@@ -554,7 +364,7 @@ Company: ChronoScale Infrastructure
 - Implements deterministic chaos testing harnesses.`,
     candidateDNA: marcusCandidate,
     precomputedQueryBundle: marcusQuery,
-    precomputedFrozenSnapshot: marcusSnapshot,
-    precomputedArtifact: marcusArtifact,
+    precomputedFrozenSnapshot: null,
+    precomputedArtifact: null,
   },
 ];
