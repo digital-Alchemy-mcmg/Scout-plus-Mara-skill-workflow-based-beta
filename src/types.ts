@@ -113,7 +113,7 @@ export type EvidenceSourceClass =
 export type EvidenceIndependence = 'INDEPENDENT' | 'DEPENDENT' | 'UNKNOWN';
 export type CorroborationState = 'NONE' | 'CORROBORATED' | 'CONVERGENT';
 export type ContradictionState = 'NONE' | 'CONTRADICTED';
-export type CorroborationType = 'CONVERGENT' | 'INDEPENDENT'; // legacy display compatibility only
+export type CorroborationType = 'CONVERGENT' | 'INDEPENDENT'; // legacy display label only; not evidence authority
 
 export interface EvidencePacket {
   evidence_id: string;
@@ -136,25 +136,17 @@ export interface EvidencePacket {
   attributes: Record<string, string | number | boolean | string[]>;
 }
 
-export interface LegacyEvidencePacket {
-  evidence_id: string;
-  domain: string;
-  governing_verb: string;
-  entity: string;
-  authority?: 'DIRECT' | 'CONTRIBUTORY' | 'STATIONARY';
-  confidence?: number;
-  provenance: { source: string; section: string; rawQuote?: string };
-  timestamp?: string;
-  attributes: Record<string, string | number | boolean | string[]>;
-}
-
+/**
+ * Runtime candidate substrate. Candidate Core is mandatory and the Evidence Registry is closed to five domains.
+ * The top-level identifiers are retained as transport/display mirrors only; they are not an evidence domain.
+ */
 export interface CandidateSpatialDNA {
   candidateId: string;
   name: string;
   currentRoleProvenance: string;
   location: string;
-  candidateCore?: CandidateCore;
-  evidenceRegistry: Record<string, Array<EvidencePacket | LegacyEvidencePacket>>;
+  candidateCore: CandidateCore;
+  evidenceRegistry: Record<EvidenceDomain, EvidencePacket[]>;
 }
 
 export interface CanonicalCandidateSpatialDNA {
@@ -179,7 +171,7 @@ export interface BoundAtom {
   independence?: EvidenceIndependence;
   corroborationState?: CorroborationState;
   contradictionState?: ContradictionState;
-  /** Deprecated legacy field; deterministic validation must not infer independence from it. */
+  /** Deprecated display compatibility only; deterministic validation must not infer independence from it. */
   corroborationType?: CorroborationType;
 }
 
