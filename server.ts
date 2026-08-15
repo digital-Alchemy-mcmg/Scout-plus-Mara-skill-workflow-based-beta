@@ -3,45 +3,88 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import crypto from 'crypto';
-import type { TargetResolvedArtifact } from './src/types';
+import type {
+  ArtifactType,
+  BoundAtom,
+  CandidateSpatialDNA,
+  CanonicalCandidateSpatialDNA,
+  DemandPrimitive,
+  EvidencePacket,
+  FrozenSnapshot,
+  MaraExhaustItem,
+  QueryBundle,
+  TargetResolvedArtifact,
+} from './src/types';
+import {
+  GOVERNING_SCHEMA_VERSION,
+  allChecksPassed,
+  canonicalStringify,
+  evaluateScoutGates,
+  normalizeCandidateDNA,
+  snapshotMaterial,
+  validateCandidateDNA,
+  validateFrozenSnapshot,
+  validateQueryBundle,
+} from './src/governance';
 
-// Initialize lazy Gemini client
 let genAiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
+  if (!apiKey) return null;
   if (!genAiClient) {
-    genAiClient = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
+    genAiClient = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
   }
   return genAiClient;
+}
+
+function sha256(value: unknown): string {
+  return crypto.createHash('sha256').update(canonicalStringify(value)).digest('hex');
+}
+
+function allEvidence(candidate: CanonicalCandidateSpatialDNA): EvidencePacket[] {
+  return Object.values(candidate.evidenceRegistry).flat();
+}
+
+function findEvidence(candidate: CanonicalCandidateSpatialDNA, evidenceId: string): EvidencePacket | undefined {
+  return allEvidence(candidate).find((packet) => packet.evidence_id === evidenceId);
+}
+
+function findDemand(bundle: QueryBundle, demandId: string): DemandPrimitive | undefined {
+  return bundle.demandPrimitives.find((demand) => demand.id === demandId);
+}
+
+function buildExecutionState(stage6Passed: boolean, queryBundle: QueryBundle) {
+  const scout = queryBundle.executionState || evaluateScoutGates(queryBundle);
+  return {
+    gates: {
+      ...scout.gates,
+      4: { stage: 4 as const, status: 'PASSED' as const, reasons: [] },
+      5: { stage: 5 as const, status: 'PASSED' as const, reasons: [] },
+      6: {
+        stage: 6 as const,
+        status: stage6Passed ? ('PASSED' as const) : ('BLOCKED' as const),
+        reasons: stage6Passed ? [] : ['Frozen snapshot failed deterministic validation.'],
+      },
+    },
+    highestPassedStage: stage6Passed ? 6 : 5,
+  };
 }
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
-
   app.use(express.json({ limit: '10mb' }));
 
-  // Health check endpoint
-  app.get('/api/health', (req: Request, res: Response) => {
+  app.get('/api/health', (_req: Request, res: Response) => {
     res.json({
       status: 'ok',
       system: 'MARA + SCOUT Query-Resolved Candidate Projection Pipeline',
-      version: '2026.08.10-F',
+      version: GOVERNING_SCHEMA_VERSION,
       hasApiKey: !!process.env.GEMINI_API_KEY,
     });
   });
 
-  // SCOUT Decompose API (Stages 1-3)
+  // SCOUT Stages 1-3. Model classification is always marked UNVERIFIED until an external reference validator says otherwise.
   app.post('/api/gemini/scout-decompose', async (req: Request, res: Response) => {
     try {
       const { jobPostingText } = req.body;
@@ -53,28 +96,24 @@ async function startServer() {
       const ai = getGeminiClient();
       if (!ai) {
         res.status(503).json({
-          error: 'GEMINI_API_KEY not configured. Falling back to local execution engine.',
-          useLocalFallback: true,
+          error: 'GEMINI_API_KEY not configured. No local fallback is implemented.',
+          invalidatesDownstream: true,
         });
         return;
       }
 
-      const prompt = `You are SCOUT (Target Compiler), the first machine in the MARA+SCOUT Governed Translation Pipeline (Spec 2026.08.10-F).
-Deconstruct the provided raw job posting into canonical Demand Primitives, Comprehension Diagnostics, Negative Space assertions, and SCOUT Exhaust.
+      const prompt = `You are SCOUT (Target Compiler), the first machine in the MARA+SCOUT Governed Translation Pipeline.
+Deconstruct the raw job posting into reversible Demand Primitives, Negative Space assertions, SCOUT Exhaust, and model-proposed NAICS/O*NET classification anchors.
 
-CRITICAL GOVERNING PROHIBITIONS (LOGC-01):
-1. NO_TITLE_EVIDENCE: The bestowed job title must NEVER appear as operational action or object evidence.
-2. NO_FLUFF_ADMISSION: Eliminate marketing fluff ("rockstar", "dynamic", "fast-paced", "years of experience"). Put these in scoutExhaust!
-3. BOX_BEFORE_LENS: Deconstruct actual operational duties (actions, objects, mechanisms, effects) before assigning NAICS/ONET.
-4. REVERSIBLE_DECOMPOSITION: Every Demand Primitive must contain actor, action, object, relationship (AUTHORITY, COORDINATION, SUPPORT), mechanism, effect, demand_type (TRAIT, SKILL, ABILITY, KNOWLEDGE), and source provenance.
-5. HOT_MATCH_ONLY: NAICS (6-digit) and O*NET/SOC (8-digit) must reflect the true economic neighborhood.
+GOVERNING RULES:
+- Do not use bestowed job title as operational evidence.
+- Divert marketing fluff and non-operational matter to SCOUT Exhaust.
+- Box before lens: reason over operational duties before classification.
+- Every Demand Primitive must preserve actor, action, object, relationship, mechanism, effect, demand_type, and source provenance.
+- Classification is a MODEL PROPOSAL only. Do not claim external verification.
 
-RAW JOB POSTING:
-"""
-${jobPostingText}
-"""
-
-Return the output formatted strictly according to the JSON schema.`;
+RAW JOB POSTING:\n\"\"\"\n${jobPostingText}\n\"\"\"\n
+Return JSON only.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
@@ -85,27 +124,21 @@ Return the output formatted strictly according to the JSON schema.`;
             type: Type.OBJECT,
             properties: {
               targetTitleProvenance: { type: Type.STRING },
-              corePurpose: { type: Type.STRING, description: '1-2 sentence existential output purpose' },
-              coreMetaphor: { type: Type.STRING, description: 'Role operational metaphor e.g. Control Tower' },
+              corePurpose: { type: Type.STRING },
+              coreMetaphor: { type: Type.STRING },
               naicsAnchor: {
                 type: Type.OBJECT,
                 properties: {
-                  code: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  rationale: { type: Type.STRING },
-                  matchType: { type: Type.STRING, enum: ['HOT_MATCH', 'COLD_MATCH'] },
-                  system: { type: Type.STRING },
+                  code: { type: Type.STRING }, title: { type: Type.STRING }, rationale: { type: Type.STRING },
+                  matchType: { type: Type.STRING, enum: ['HOT_MATCH', 'COLD_MATCH'] }, system: { type: Type.STRING },
                 },
                 required: ['code', 'title', 'rationale', 'matchType', 'system'],
               },
               onetAnchor: {
                 type: Type.OBJECT,
                 properties: {
-                  code: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  rationale: { type: Type.STRING },
-                  matchType: { type: Type.STRING, enum: ['HOT_MATCH', 'COLD_MATCH'] },
-                  system: { type: Type.STRING },
+                  code: { type: Type.STRING }, title: { type: Type.STRING }, rationale: { type: Type.STRING },
+                  matchType: { type: Type.STRING, enum: ['HOT_MATCH', 'COLD_MATCH'] }, system: { type: Type.STRING },
                 },
                 required: ['code', 'title', 'rationale', 'matchType', 'system'],
               },
@@ -114,43 +147,26 @@ Return the output formatted strictly according to the JSON schema.`;
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    id: { type: Type.STRING },
-                    actor: { type: Type.STRING },
-                    action: { type: Type.STRING },
-                    object: { type: Type.STRING },
+                    id: { type: Type.STRING }, actor: { type: Type.STRING }, action: { type: Type.STRING }, object: { type: Type.STRING },
                     relationship: { type: Type.STRING, enum: ['AUTHORITY', 'COORDINATION', 'SUPPORT'] },
-                    mechanism: { type: Type.STRING },
-                    effect: { type: Type.STRING },
+                    mechanism: { type: Type.STRING }, effect: { type: Type.STRING },
                     demand_type: { type: Type.STRING, enum: ['TRAIT', 'SKILL', 'ABILITY', 'KNOWLEDGE'] },
-                    provenance: { type: Type.STRING },
-                    isCritical: { type: Type.BOOLEAN },
+                    provenance: { type: Type.STRING }, isCritical: { type: Type.BOOLEAN },
                   },
                   required: ['id', 'actor', 'action', 'object', 'relationship', 'mechanism', 'effect', 'demand_type', 'provenance'],
                 },
               },
               negativeSpace: {
                 type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    assertion: { type: Type.STRING },
-                    reason: { type: Type.STRING },
-                  },
-                  required: ['id', 'assertion', 'reason'],
-                },
+                items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, assertion: { type: Type.STRING }, reason: { type: Type.STRING } }, required: ['id', 'assertion', 'reason'] },
               },
-              activeReceptors: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
+              activeReceptors: { type: Type.ARRAY, items: { type: Type.STRING } },
               scoutExhaust: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    id: { type: Type.STRING },
-                    text: { type: Type.STRING },
+                    id: { type: Type.STRING }, text: { type: Type.STRING },
                     reason: { type: Type.STRING, enum: ['MARKETING_FLUFF', 'BESTOWED_TITLE', 'STATIC_CREDENTIAL_FILTER', 'NON_OPERATIONAL'] },
                     originalLocation: { type: Type.STRING },
                   },
@@ -158,70 +174,66 @@ Return the output formatted strictly according to the JSON schema.`;
                 },
               },
             },
-            required: [
-              'targetTitleProvenance',
-              'corePurpose',
-              'coreMetaphor',
-              'naicsAnchor',
-              'onetAnchor',
-              'demandPrimitives',
-              'negativeSpace',
-              'activeReceptors',
-              'scoutExhaust',
-            ],
+            required: ['targetTitleProvenance', 'corePurpose', 'coreMetaphor', 'naicsAnchor', 'onetAnchor', 'demandPrimitives', 'negativeSpace', 'activeReceptors', 'scoutExhaust'],
           },
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
+      const parsed = JSON.parse(response.text || '{}') as QueryBundle;
       parsed.timestamp = new Date().toISOString();
+      parsed.naicsAnchor.validationStatus = 'UNVERIFIED';
+      parsed.onetAnchor.validationStatus = 'UNVERIFIED';
+      delete parsed.naicsAnchor.validationSource;
+      delete parsed.onetAnchor.validationSource;
+      parsed.executionState = evaluateScoutGates(parsed);
       res.json(parsed);
     } catch (err: any) {
       console.error('Error in /api/gemini/scout-decompose:', err);
-      res.status(500).json({ error: err.message || 'Failed to decompose target posting.', useLocalFallback: true });
+      res.status(500).json({ error: err.message || 'Failed to decompose target posting.', invalidatesDownstream: true });
     }
   });
 
-  // MARA Traversal & Binding API (Stages 4-6)
+  // MARA Stages 4-6. Requires SCOUT validation gate and canonical five-domain candidate substrate.
   app.post('/api/gemini/mara-bind', async (req: Request, res: Response) => {
     try {
-      const { queryBundle, candidateDNA } = req.body;
+      const { queryBundle, candidateDNA } = req.body as { queryBundle?: QueryBundle; candidateDNA?: CandidateSpatialDNA };
       if (!queryBundle || !candidateDNA) {
         res.status(400).json({ error: 'queryBundle and candidateDNA are required.' });
         return;
       }
 
-      const ai = getGeminiClient();
-      if (!ai) {
-        res.status(503).json({
-          error: 'GEMINI_API_KEY not configured. Falling back to local execution engine.',
-          useLocalFallback: true,
+      const canonicalCandidate = normalizeCandidateDNA(candidateDNA);
+      const candidateChecks = validateCandidateDNA(canonicalCandidate);
+      const queryChecks = validateQueryBundle(queryBundle);
+      if (!allChecksPassed([...candidateChecks, ...queryChecks])) {
+        res.status(422).json({
+          error: 'MARA gate blocked by deterministic architecture validation.',
+          checks: [...candidateChecks, ...queryChecks],
+          invalidatesDownstream: true,
         });
         return;
       }
 
-      const prompt = `You are MARA (Evidence Binding & Projection Engine), the second machine in the MARA+SCOUT Pipeline (Spec 2026.08.10-F).
-You perform read-only traversal of the Candidate's Immutable Spatial Evidence Substrate against the SCOUT Query Bundle.
+      const ai = getGeminiClient();
+      if (!ai) {
+        res.status(503).json({ error: 'GEMINI_API_KEY not configured. No local fallback is implemented.', invalidatesDownstream: true });
+        return;
+      }
 
-GOVERNING RULES:
-1. NO_WRITE_BACK: You cannot alter candidate facts.
-2. ABSENCE IS NOT NEGATIVE: An unsupported demand yields MARA Exhaust with reason 'unsupported' or 'non_demonstrated', NOT 'FLOOR' or adverse score unless active contradiction exists.
-3. SEMANTIC BANDS:
-   - CEILING: Ideal demonstration exceeding base requirement
-   - ABOVE_BASELINE: Strong corroboration
-   - BASELINE: Presence
-   - BELOW_BASELINE: Weak authority
-   - FLOOR: Contradiction/failure
-4. CORROBORATION: Mark CONVERGENT when multiple domains back one claim, INDEPENDENT for isolated facts.
-5. MARA EXHAUST: Every demand that fails to bind must be listed with its reason (unsupported, non_demonstrated, contradicted, insufficient_authority).
+      const prompt = `You are MARA (Evidence Binding & Projection Engine).
+Perform read-only traversal of the canonical five-domain candidate evidence registry against the validated SCOUT query bundle.
 
-QUERY BUNDLE:
-${JSON.stringify(queryBundle, null, 2)}
+RULES:
+- Never write back to Candidate Core or evidence.
+- Absence is not negative evidence.
+- Preserve unsupported, contradicted, non-demonstrated, and insufficient-authority as distinct non-bind states.
+- Do not infer evidence independence from different domains. Use proposition identity and source lineage supplied in the evidence packet.
+- A FLOOR placement requires explicit contradictory evidence; unsupported evidence cannot become FLOOR.
+- Semantic Band behavior is preserved by this repair and is not being redesigned.
 
-CANDIDATE SPATIAL DNA:
-${JSON.stringify(candidateDNA, null, 2)}
-
-Produce the Binding Matrix and MARA Exhaust.`;
+QUERY BUNDLE:\n${JSON.stringify(queryBundle, null, 2)}\n
+CANONICAL CANDIDATE SPATIAL DNA:\n${JSON.stringify(canonicalCandidate, null, 2)}\n
+Return binding candidates and MARA exhaust. Reference only existing demand IDs and evidence IDs.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
@@ -236,19 +248,12 @@ Produce the Binding Matrix and MARA Exhaust.`;
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    demandId: { type: Type.STRING },
-                    evidenceId: { type: Type.STRING },
-                    semanticBand: {
-                      type: Type.STRING,
-                      enum: ['CEILING', 'ABOVE_BASELINE', 'BASELINE', 'BELOW_BASELINE', 'FLOOR'],
-                    },
-                    score: { type: Type.NUMBER },
-                    corroborationType: { type: Type.STRING, enum: ['CONVERGENT', 'INDEPENDENT'] },
+                    demandId: { type: Type.STRING }, evidenceId: { type: Type.STRING },
+                    semanticBand: { type: Type.STRING, enum: ['CEILING', 'ABOVE_BASELINE', 'BASELINE', 'BELOW_BASELINE', 'FLOOR'] },
+                    score: { type: Type.NUMBER }, rationale: { type: Type.STRING }, bandOffset: { type: Type.NUMBER },
                     corroboratingEvidenceIds: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    rationale: { type: Type.STRING },
-                    bandOffset: { type: Type.NUMBER },
                   },
-                  required: ['demandId', 'evidenceId', 'semanticBand', 'score', 'corroborationType', 'rationale', 'bandOffset'],
+                  required: ['demandId', 'evidenceId', 'semanticBand', 'score', 'rationale', 'bandOffset'],
                 },
               },
               maraExhaust: {
@@ -256,12 +261,8 @@ Produce the Binding Matrix and MARA Exhaust.`;
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    id: { type: Type.STRING },
-                    demandId: { type: Type.STRING },
-                    reason: {
-                      type: Type.STRING,
-                      enum: ['unsupported', 'non_demonstrated', 'contradicted', 'insufficient_authority'],
-                    },
+                    id: { type: Type.STRING }, demandId: { type: Type.STRING },
+                    reason: { type: Type.STRING, enum: ['unsupported', 'non_demonstrated', 'contradicted', 'insufficient_authority'] },
                     detailedAnalysis: { type: Type.STRING },
                     severity: { type: Type.STRING, enum: ['CRITICAL_GAP', 'SECONDARY_GAP', 'NEUTRAL_ABSENCE'] },
                   },
@@ -270,121 +271,158 @@ Produce the Binding Matrix and MARA Exhaust.`;
               },
               projectionCenter: {
                 type: Type.OBJECT,
-                properties: {
-                  x: { type: Type.NUMBER },
-                  y: { type: Type.NUMBER },
-                  z: { type: Type.NUMBER },
-                },
+                properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER }, z: { type: Type.NUMBER } },
                 required: ['x', 'y', 'z'],
               },
-              isBlocked: { type: Type.BOOLEAN },
-              blockReason: { type: Type.STRING },
             },
-            required: ['boundAtoms', 'maraExhaust', 'projectionCenter', 'isBlocked'],
+            required: ['boundAtoms', 'maraExhaust', 'projectionCenter'],
           },
         },
       });
 
-      const parsed = JSON.parse(response.text || '{}');
-      const freezeTimestamp = new Date().toISOString();
-      const freezeHash = '0x' + crypto.createHash('sha256').update(JSON.stringify(parsed.boundAtoms) + freezeTimestamp).digest('hex').substring(0, 40);
+      const parsed = JSON.parse(response.text || '{}') as { boundAtoms: BoundAtom[]; maraExhaust: Array<Omit<MaraExhaustItem, 'demandPrimitive'> & { demandId: string }>; projectionCenter: { x: number; y: number; z: number } };
 
-      // Re-hydrate full DemandPrimitive inside maraExhaust if needed
-      const maraExhaustHydrated = parsed.maraExhaust.map((mex: any) => {
-        const dp = queryBundle.demandPrimitives.find((p: any) => p.id === mex.demandId) || {
-          id: mex.demandId,
-          actor: 'Incumbent',
-          action: 'Requirement',
-          object: 'Duty',
-          relationship: 'COORDINATION',
-          mechanism: 'Process',
-          effect: 'Outcome',
-          demand_type: 'SKILL',
-          provenance: 'Source',
-        };
+      // Fail closed: every model reference must resolve to source-approved material.
+      const hydratedBoundAtoms: BoundAtom[] = parsed.boundAtoms.map((atom) => {
+        const evidence = findEvidence(canonicalCandidate, atom.evidenceId);
+        const demand = findDemand(queryBundle, atom.demandId);
+        if (!evidence || !demand) throw new Error(`Unresolvable binding reference demand=${atom.demandId} evidence=${atom.evidenceId}`);
+        const corroborating = (atom.corroboratingEvidenceIds || []).map((id) => {
+          const found = findEvidence(canonicalCandidate, id);
+          if (!found) throw new Error(`Unresolvable corroborating evidence reference ${id}`);
+          return found;
+        });
+        if (atom.semanticBand === 'FLOOR' && evidence.contradictionState !== 'CONTRADICTED') {
+          throw new Error(`Floor placement requires explicitly contradicted evidence: ${atom.evidenceId}`);
+        }
         return {
-          id: mex.id || `MEX-${mex.demandId}`,
-          demandPrimitive: dp,
-          reason: mex.reason,
-          detailedAnalysis: mex.detailedAnalysis,
-          severity: mex.severity,
+          ...atom,
+          propositionId: evidence.propositionId,
+          sourceLineageIds: [evidence.sourceLineageId, ...corroborating.map((item) => item.sourceLineageId)],
+          independence: evidence.independence,
+          corroborationState: evidence.corroborationState,
+          contradictionState: evidence.contradictionState,
         };
       });
 
-      const ceilingCount = parsed.boundAtoms.filter((b: any) => b.semanticBand === 'CEILING').length;
-      const aboveBaselineCount = parsed.boundAtoms.filter((b: any) => b.semanticBand === 'ABOVE_BASELINE').length;
-      const baselineCount = parsed.boundAtoms.filter((b: any) => b.semanticBand === 'BASELINE').length;
-      const belowBaselineCount = parsed.boundAtoms.filter((b: any) => b.semanticBand === 'BELOW_BASELINE').length;
-      const floorCount = parsed.boundAtoms.filter((b: any) => b.semanticBand === 'FLOOR').length;
+      const maraExhaust: MaraExhaustItem[] = parsed.maraExhaust.map((item) => {
+        const demand = findDemand(queryBundle, item.demandId);
+        if (!demand) throw new Error(`Unresolvable MARA exhaust demand reference ${item.demandId}`);
+        return {
+          id: item.id || `MEX-${item.demandId}`,
+          demandPrimitive: demand,
+          reason: item.reason,
+          detailedAnalysis: item.detailedAnalysis,
+          severity: item.severity,
+        };
+      });
 
-      const totalDemands = queryBundle.demandPrimitives?.length || 1;
-      const alignmentRatio = (ceilingCount + aboveBaselineCount + baselineCount) / totalDemands;
+      const evidenceIds = new Set(hydratedBoundAtoms.flatMap((atom) => [atom.evidenceId, ...(atom.corroboratingEvidenceIds || [])]));
+      const renderEvidence = [...evidenceIds].map((id) => {
+        const evidence = findEvidence(canonicalCandidate, id);
+        if (!evidence) throw new Error(`Frozen render boundary cannot resolve evidence ${id}`);
+        return evidence;
+      });
+      const demandIds = new Set([...hydratedBoundAtoms.map((atom) => atom.demandId), ...maraExhaust.map((item) => item.demandPrimitive.id)]);
+      const renderDemands = [...demandIds].map((id) => {
+        const demand = findDemand(queryBundle, id);
+        if (!demand) throw new Error(`Frozen render boundary cannot resolve demand ${id}`);
+        return demand;
+      });
 
-      const frozenSnapshot = {
-        freezeHash,
+      const ceilingCount = hydratedBoundAtoms.filter((b) => b.semanticBand === 'CEILING').length;
+      const aboveBaselineCount = hydratedBoundAtoms.filter((b) => b.semanticBand === 'ABOVE_BASELINE').length;
+      const baselineCount = hydratedBoundAtoms.filter((b) => b.semanticBand === 'BASELINE').length;
+      const belowBaselineCount = hydratedBoundAtoms.filter((b) => b.semanticBand === 'BELOW_BASELINE').length;
+      const floorCount = hydratedBoundAtoms.filter((b) => b.semanticBand === 'FLOOR').length;
+      const totalDemands = queryBundle.demandPrimitives.length || 1;
+
+      const freezeTimestamp = new Date().toISOString();
+      const snapshotBase: FrozenSnapshot = {
+        schemaVersion: GOVERNING_SCHEMA_VERSION,
+        freezeHash: '',
         freezeTimestamp,
-        candidateId: candidateDNA.candidateId,
+        candidateId: canonicalCandidate.candidateCore.candidateId,
         targetRoleIdentifier: queryBundle.targetTitleProvenance,
-        activeWalls: queryBundle.activeReceptors || ['WORK_HISTORY', 'CREATIVE_WORKS', 'TESTIMONY_BEHAVIOR', 'EDUCATION_COMPETENCY'],
-        boundAtoms: parsed.boundAtoms,
-        maraExhaust: maraExhaustHydrated,
+        activeWalls: queryBundle.activeReceptors,
+        boundAtoms: hydratedBoundAtoms,
+        maraExhaust,
         projectionCenter: parsed.projectionCenter,
         geometricState: {
-          ceilingCount,
-          aboveBaselineCount,
-          baselineCount,
-          belowBaselineCount,
-          floorCount,
-          alignmentRatio,
+          ceilingCount, aboveBaselineCount, baselineCount, belowBaselineCount, floorCount,
+          alignmentRatio: (ceilingCount + aboveBaselineCount + baselineCount) / totalDemands,
         },
-        isBlocked: parsed.isBlocked || false,
-        blockReason: parsed.blockReason,
+        projectionSufficiency: {
+          satisfied: null,
+          reasons: ['Protected YELLOW decision: no minimum projection-sufficiency threshold is defined by this repair.'],
+        },
+        renderContext: {
+          candidate: {
+            candidateId: canonicalCandidate.candidateCore.candidateId,
+            name: canonicalCandidate.candidateCore.name,
+            location: canonicalCandidate.candidateCore.location,
+          },
+          target: { targetRoleIdentifier: queryBundle.targetTitleProvenance, purpose: queryBundle.corePurpose },
+          demands: renderDemands,
+          evidence: renderEvidence,
+        },
+        boundaryIdentity: {
+          queryTimestamp: queryBundle.timestamp,
+          candidateId: canonicalCandidate.candidateCore.candidateId,
+          schemaVersion: GOVERNING_SCHEMA_VERSION,
+        },
+        isBlocked: false,
       };
 
-      res.json(frozenSnapshot);
+      snapshotBase.executionState = buildExecutionState(true, queryBundle);
+      snapshotBase.freezeHash = sha256(snapshotMaterial(snapshotBase));
+      const snapshotChecks = validateFrozenSnapshot(snapshotBase);
+      if (!allChecksPassed(snapshotChecks)) {
+        res.status(422).json({ error: 'Frozen snapshot failed deterministic validation.', checks: snapshotChecks, invalidatesDownstream: true });
+        return;
+      }
+
+      res.json(snapshotBase);
     } catch (err: any) {
       console.error('Error in /api/gemini/mara-bind:', err);
-      res.status(500).json({ error: err.message || 'Failed to bind candidate evidence.', useLocalFallback: true });
+      res.status(422).json({ error: err.message || 'Failed to bind candidate evidence.', invalidatesDownstream: true });
     }
   });
 
-  // ARTIFACT MODEL Render API (Stage 7)
+  // ARTIFACT Stage 7. Contractually limited to the Frozen Snapshot.
   app.post('/api/gemini/artifact-render', async (req: Request, res: Response) => {
     try {
-      const { frozenSnapshot, candidateDNA, queryBundle, artifactType } = req.body;
-      if (!frozenSnapshot || !candidateDNA || !queryBundle) {
-        res.status(400).json({ error: 'frozenSnapshot, candidateDNA, and queryBundle are required.' });
+      const { frozenSnapshot, artifactType } = req.body as { frozenSnapshot?: FrozenSnapshot; artifactType?: ArtifactType };
+      if (!frozenSnapshot) {
+        res.status(400).json({ error: 'frozenSnapshot is required.' });
+        return;
+      }
+
+      const checks = validateFrozenSnapshot(frozenSnapshot);
+      const expectedHash = sha256(snapshotMaterial(frozenSnapshot));
+      checks.push({
+        ruleId: 'FREEZE_INTEGRITY', name: 'Frozen Snapshot hash covers material payload',
+        passed: expectedHash === frozenSnapshot.freezeHash,
+        details: expectedHash === frozenSnapshot.freezeHash ? 'Freeze hash matches canonical material payload.' : 'Frozen payload changed after hashing.',
+        severity: 'ERROR',
+      });
+      if (!allChecksPassed(checks)) {
+        res.status(422).json({ error: 'Artifact rendering blocked by snapshot validation.', checks });
         return;
       }
 
       const ai = getGeminiClient();
       if (!ai) {
-        res.status(503).json({
-          error: 'GEMINI_API_KEY not configured. Falling back to local execution engine.',
-          useLocalFallback: true,
-        });
+        res.status(503).json({ error: 'GEMINI_API_KEY not configured. No local fallback is implemented.' });
         return;
       }
 
-      const prompt = `You are ARTIFACT MODEL (Projection Renderer), the third machine in the MARA+SCOUT Pipeline (Spec 2026.08.10-F).
-Render a Target-Resolved ${artifactType || 'TARGET_RESOLVED_RESUME'} based ONLY on the Frozen Projection Snapshot.
+      const prompt = `You are ARTIFACT MODEL, the third machine in the MARA+SCOUT pipeline.
+Render a target-resolved ${artifactType || 'TARGET_RESOLVED_RESUME'} using ONLY the Frozen Snapshot below.
+Do not infer or discover candidate evidence outside this payload. Every capability sentence must cite an evidence ID that exists inside renderContext.evidence. Unsupported MARA Exhaust may inform omission or gap-oriented artifacts but must not be bridged into candidate claims.
 
-CRITICAL RULES:
-1. TRACEABILITY CONTRACT: Every single capability sentence must be traceable to a specific Bound Atom and Evidence Packet ID. Include the [EV-XXX] citation at the end of each bullet point!
-2. NO DISCOVERY: Do not invent candidate experiences not in the frozen snapshot.
-3. NO FLUFF: Use clean, factual operational language.
-
-FROZEN SNAPSHOT:
-${JSON.stringify(frozenSnapshot, null, 2)}
-
-QUERY BUNDLE:
-${JSON.stringify(queryBundle, null, 2)}
-
-CANDIDATE IDENTITY:
-Name: ${candidateDNA.name}
-Location: ${candidateDNA.location}
-
-Return the rendered document with section breakdowns and sentence-level traceability links.`;
+FROZEN SNAPSHOT:\n${JSON.stringify(frozenSnapshot, null, 2)}\n
+Return JSON only.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
@@ -394,28 +432,17 @@ Return the rendered document with section breakdowns and sentence-level traceabi
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING },
-              content: { type: Type.STRING },
+              title: { type: Type.STRING }, content: { type: Type.STRING },
               sections: {
                 type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    heading: { type: Type.STRING },
-                    content: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  },
-                  required: ['heading', 'content'],
-                },
+                items: { type: Type.OBJECT, properties: { heading: { type: Type.STRING }, content: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ['heading', 'content'] },
               },
               traceabilityLinks: {
                 type: Type.ARRAY,
                 items: {
                   type: Type.OBJECT,
                   properties: {
-                    artifactSentenceIndex: { type: Type.NUMBER },
-                    sentenceText: { type: Type.STRING },
-                    demandId: { type: Type.STRING },
-                    evidenceId: { type: Type.STRING },
+                    artifactSentenceIndex: { type: Type.NUMBER }, sentenceText: { type: Type.STRING }, demandId: { type: Type.STRING }, evidenceId: { type: Type.STRING },
                   },
                   required: ['artifactSentenceIndex', 'sentenceText', 'demandId', 'evidenceId'],
                 },
@@ -427,74 +454,46 @@ Return the rendered document with section breakdowns and sentence-level traceabi
       });
 
       const parsed = JSON.parse(response.text || '{}');
-
-      // Hydrate links with actual objects
-      const fullTraceabilityLinks = parsed.traceabilityLinks.map((link: any) => {
-        const boundAtom = frozenSnapshot.boundAtoms.find((b: any) => b.demandId === link.demandId) || frozenSnapshot.boundAtoms[0];
-        const demandPrimitive = queryBundle.demandPrimitives.find((d: any) => d.id === link.demandId) || queryBundle.demandPrimitives[0];
-        
-        let evidencePacket: any = null;
-        Object.values(candidateDNA.evidenceRegistry).forEach((list: any) => {
-          const found = list.find((e: any) => e.evidence_id === link.evidenceId);
-          if (found) evidencePacket = found;
-        });
-
-        return {
-          artifactSentenceIndex: link.artifactSentenceIndex,
-          sentenceText: link.sentenceText,
-          boundAtom,
-          evidencePacket: evidencePacket || {
-            evidence_id: link.evidenceId,
-            domain: 'WORK_HISTORY',
-            governing_verb: 'Executed',
-            entity: 'Target capability',
-            authority: 'DIRECT',
-            provenance: { source: 'Candidate Record', section: 'History' },
-            confidence: 0.95,
-            attributes: {},
-          },
-          demandPrimitive,
-        };
+      const context = frozenSnapshot.renderContext!;
+      const traceabilityLinks = parsed.traceabilityLinks.map((link: any) => {
+        const boundAtom = frozenSnapshot.boundAtoms.find((b) => b.demandId === link.demandId && b.evidenceId === link.evidenceId);
+        const demandPrimitive = context.demands.find((d) => d.id === link.demandId);
+        const evidencePacket = context.evidence.find((e) => e.evidence_id === link.evidenceId);
+        if (!boundAtom || !demandPrimitive || !evidencePacket) {
+          throw new Error(`Artifact traceability reference is outside frozen boundary demand=${link.demandId} evidence=${link.evidenceId}`);
+        }
+        return { artifactSentenceIndex: link.artifactSentenceIndex, sentenceText: link.sentenceText, boundAtom, evidencePacket, demandPrimitive };
       });
 
       const artifact: TargetResolvedArtifact = {
         id: `ART-${Date.now()}`,
         type: artifactType || 'TARGET_RESOLVED_RESUME',
         title: parsed.title,
-        candidateName: candidateDNA.name,
-        targetRole: queryBundle.targetTitleProvenance,
+        candidateName: context.candidate.name,
+        targetRole: context.target.targetRoleIdentifier,
         content: parsed.content,
         sections: parsed.sections,
-        traceabilityLinks: fullTraceabilityLinks,
+        traceabilityLinks,
         generatedAt: new Date().toISOString(),
         freezeHash: frozenSnapshot.freezeHash,
       };
-
       res.json(artifact);
     } catch (err: any) {
       console.error('Error in /api/gemini/artifact-render:', err);
-      res.status(500).json({ error: err.message || 'Failed to render target-resolved artifact.', useLocalFallback: true });
+      res.status(422).json({ error: err.message || 'Failed to render target-resolved artifact.' });
     }
   });
 
-  // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (_req: Request, res: Response) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`MARA/SCOUT Projection Server running at http://0.0.0.0:${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`MARA/SCOUT Projection Server running at http://0.0.0.0:${PORT}`));
 }
 
 startServer();
