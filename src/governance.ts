@@ -1,10 +1,7 @@
 import type {
-  CandidateCore,
   CandidateSpatialDNA,
   CanonicalCandidateSpatialDNA,
   EvidenceDomain,
-  EvidencePacket,
-  LegacyEvidencePacket,
   QueryBundle,
   FrozenSnapshot,
   ValidationCheckResult,
@@ -29,61 +26,11 @@ export function isEvidenceDomain(value: string): value is EvidenceDomain {
   return domainSet.has(value);
 }
 
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
-function inferCandidateRelationship(authority?: LegacyEvidencePacket['authority']): EvidencePacket['candidateRelationship'] {
-  if (authority === 'DIRECT') return 'DIRECT';
-  if (authority === 'CONTRIBUTORY') return 'CONTRIBUTORY';
-  if (authority === 'STATIONARY') return 'OBSERVED';
-  return 'UNKNOWN';
-}
-
 export function normalizeCandidateDNA(input: CandidateSpatialDNA): CanonicalCandidateSpatialDNA {
-  const core: CandidateCore = input.candidateCore || {
-    candidateId: input.candidateId,
-    name: input.name,
-    location: input.location,
-    currentRoleProvenance: input.currentRoleProvenance,
-    biographical: {},
+  return {
+    candidateCore: input.candidateCore,
+    evidenceRegistry: input.evidenceRegistry,
   };
-
-  const registry = Object.fromEntries(EVIDENCE_DOMAINS.map((domain) => [domain, []])) as Record<EvidenceDomain, EvidencePacket[]>;
-
-  for (const [domainKey, packets] of Object.entries(input.evidenceRegistry || {})) {
-    if (domainKey === 'IDENTITY') continue; // Candidate Core is not evidence.
-    if (!isEvidenceDomain(domainKey)) continue;
-
-    for (const raw of packets || []) {
-      if (!isEvidenceDomain(raw.domain)) continue;
-      const modern = raw as Partial<EvidencePacket> & LegacyEvidencePacket;
-      const packet: EvidencePacket = {
-        evidence_id: modern.evidence_id,
-        domain: raw.domain,
-        governing_verb: modern.governing_verb,
-        entity: modern.entity,
-        propositionId: modern.propositionId || `PROP:${modern.evidence_id}`,
-        candidateRelationship: modern.candidateRelationship || inferCandidateRelationship(modern.authority),
-        sourceClass: modern.sourceClass || 'UNSPECIFIED',
-        authorityCeiling: clamp01(modern.authorityCeiling ?? 0),
-        extractionConfidence: clamp01(modern.extractionConfidence ?? modern.confidence ?? 0),
-        authorityVerified: modern.authorityVerified ?? false,
-        sourceLineageId: modern.sourceLineageId || `LINEAGE:${modern.provenance.source}`,
-        independence: modern.independence || 'UNKNOWN',
-        corroborationState: modern.corroborationState || 'NONE',
-        contradictionState: modern.contradictionState || 'NONE',
-        convergesWithEvidenceIds: modern.convergesWithEvidenceIds || [],
-        provenance: modern.provenance,
-        timestamp: modern.timestamp,
-        attributes: modern.attributes || {},
-      };
-      registry[domainKey].push(packet);
-    }
-  }
-
-  return { candidateCore: core, evidenceRegistry: registry };
 }
 
 export function canonicalStringify(value: unknown): string {
@@ -150,11 +97,14 @@ export function validateCandidateDNA(candidate: CanonicalCandidateSpatialDNA): V
     details: 'Identity/biographical subject information is held by Candidate Core.',
     severity: 'ERROR',
   });
+
+  const registryKeys = Object.keys(candidate.evidenceRegistry);
+  const exactFiveDomains = registryKeys.length === EVIDENCE_DOMAINS.length && EVIDENCE_DOMAINS.every((domain) => registryKeys.includes(domain));
   results.push({
     ruleId: 'FIVE_DOMAIN_REGISTRY',
-    name: 'Evidence registry uses five domains',
-    passed: Object.keys(candidate.evidenceRegistry).every(isEvidenceDomain) && !('IDENTITY' in candidate.evidenceRegistry),
-    details: 'IDENTITY is not a legal evidence domain.',
+    name: 'Evidence registry uses exactly five domains',
+    passed: exactFiveDomains && registryKeys.every(isEvidenceDomain),
+    details: 'Candidate Core is separate; the Evidence Registry is closed to the five canonical domains.',
     severity: 'ERROR',
   });
 
@@ -169,8 +119,21 @@ export function validateCandidateDNA(candidate: CanonicalCandidateSpatialDNA): V
   results.push({
     ruleId: 'AUTHORITY_SEPARATION',
     name: 'Extraction confidence is separate from authority',
-    passed: packets.every((p) => p.extractionConfidence >= 0 && p.extractionConfidence <= 1 && p.authorityCeiling >= 0 && p.authorityCeiling <= 1),
-    details: 'Extraction confidence and evidentiary authority ceiling are stored independently.',
+    passed: packets.every((p) =>
+      p.extractionConfidence >= 0 && p.extractionConfidence <= 1 &&
+      p.authorityCeiling >= 0 && p.authorityCeiling <= 1 &&
+      !!p.sourceClass && !!p.candidateRelationship && typeof p.authorityVerified === 'boolean'
+    ),
+    details: 'Extraction confidence, evidence/source class, candidate relationship, verification, and authority ceiling are stored independently.',
+    severity: 'ERROR',
+  });
+  results.push({
+    ruleId: 'CORROBORATION_SEPARATION',
+    name: 'Corroboration metadata is structurally distinct',
+    passed: packets.every((p) =>
+      !!p.independence && !!p.corroborationState && !!p.contradictionState && Array.isArray(p.convergesWithEvidenceIds)
+    ),
+    details: 'Independence, corroboration, contradiction, convergence, proposition identity, and lineage remain separate fields.',
     severity: 'ERROR',
   });
   return results;
