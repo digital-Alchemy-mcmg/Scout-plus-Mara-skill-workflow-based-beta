@@ -60,12 +60,14 @@ The count and ownership of active semantic walls/receptors is also preserved as 
 
 Projection sufficiency is not geometric Floor. A minimum evidence/binding threshold, if later defined, must be represented separately from actual contradictory or adverse evidence.
 
-## 7. Legacy Fixture Migration
+## 7. Runtime and Fixture Conformance
 
-Pre-repair fixtures may still contain legacy `IDENTITY` evidence packets and combined `confidence` / `authority` fields. Runtime normalization must:
+The repaired runtime and repository fixtures must already conform to this canonical shape before MARA traversal.
 
-- move subject identity to Candidate Core;
-- discard `IDENTITY` from the Evidence Registry;
-- map legacy extraction confidence only to extraction confidence;
-- leave source authority unverified unless a valid source class and ceiling are supplied;
-- never infer independence from evidence-domain separation.
+The following are invalid runtime representations:
+
+- an `IDENTITY` Evidence Registry key or evidence packet;
+- legacy evidence packets using combined `authority` / `confidence` fields;
+- implicit runtime migration that guesses source class, authority ceiling, evidentiary independence, proposition identity, or source lineage.
+
+Identity and biographical subject information must be supplied through Candidate Core. Evidence packets must supply the separated canonical fields defined above. Invalid legacy payloads fail schema/architecture validation rather than being silently upgraded.
