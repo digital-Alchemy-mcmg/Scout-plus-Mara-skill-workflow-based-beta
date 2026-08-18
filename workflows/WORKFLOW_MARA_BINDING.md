@@ -1,50 +1,52 @@
-# WORK-02: Workflow - MARA Binding & Projection
+# WORK-02: MARA Binding Workflow
 
-## 1. Overview
-MARA is a read-only interrogation engine. It does not search for keywords; it tests the "Bind" between structured job demands and immutable candidate evidence.
+MARA operationalizes Stages 4-6 as read-only traversal of canonical Candidate Core + five-domain evidence.
 
-## 2. Operational Steps
+## Stage 4 — Query Acceptance
 
-### Step 1: Query Insertion (Stage 4)
-- **Action:** Accept the `INTF-01` Query Bundle from SCOUT.
-- **Receptor Setup:**
-    - Attach receptors to the **Candidate Origin** (Absolute Zero).
-    - Activate the **4 Semantic Walls** defined in the Query Bundle.
-    - Set the **Evidence Boundary** (Confidence/Authority threshold).
+MARA accepts only a Query Bundle that passed SCOUT readiness and a candidate substrate normalized to:
 
-### Step 2: Traversal (Stage 5)
-- **Action:** Traverse the Candidate DNA substrate through the active semantic walls.
-- **Logic:** For each Demand Primitive, query the Evidence Registry.
-- **Evaluation:** Measure the "distance" from Origin to Ceiling/Floor.
-    - **Aligns:** Evidence supports the action/object/mechanism.
-    - **Contradicts:** Evidence proves the candidate cannot or did not perform the demand.
-    - **Absence:** No evidence found (Result: `unsupported`).
+- first-class Candidate Core;
+- five legal evidence domains;
+- no `IDENTITY` evidence domain.
 
-### Step 3: Corroboration & Counterposition
-- **Convergent Corroboration:** Identify if multiple planes (e.g., Work History + Projects + Testimony) independently support the same proposition.
-- **Independent Instantiation:** Determine if evidence objects represent distinct facts that should not be collapsed.
-- **Counterposition:** Test the "Governing Verb" (e.g., *Built* vs. *Maintained*) to ensure the authority level matches the demand.
+The repair does not decide receptor ownership/count.
 
-### Step 4: Exhaust Formation (Stage 6)
-- **Action:** Collect all legitimate target demands that failed to bind.
-- **Categorization:** Assign a reason to each exhaust atom:
-    - `unsupported`: No evidence found.
-    - `non_demonstrated`: Query requires history; none present.
-    - `contradicted`: Adverse evidence found.
-    - `insufficient_authority`: Evidence exists but at a lower authority than demanded.
-- **Output:** **MARA Exhaust Map**.
+Canonical evidence must already have been populated through its domain-specific extraction contract before traversal. Domain extraction is candidate-centered: begin from Candidate Core, determine what the candidate can legitimately own in the selected evidence domain, then locate explicit source evidence supporting that exact candidate-owned proposition. Do not perform plane-first, keyword-first, or target-contaminated population.
 
-### Step 5: The "Freeze" & Snapshot
-- **Action:** Once traversal is complete, trigger the **Evidence Boundary Freeze**.
-- **Constraint:** No new candidate evidence may enter the reasoning cycle.
-- **Result:** Generate the **Frozen Snapshot**. This is a query-resolved representation of the candidate as viewed *only* through this specific target lens.
+The current Education & Technical Competency extraction contract is `workflows/DOMAIN_EDUCATION_TECHNICAL_COMPETENCY.md`.
 
-## 3. Evaluative Boundaries (Diagnostic Checks)
-- **Ceiling Check:** Is there evidence that exceeds the baseline requirement?
-- **Floor Check:** Is there active contradictory evidence (Misconduct/Failure)?
-- **Alignment Floor:** Have the "Critical Atoms" (Must-Haves) bound? If not, set `projection_blocked = TRUE`.
+## Stage 5 — Binding
 
-## 4. Handoff Criteria
-- **Freeze Hash:** Generate a stable identifier for the frozen evidence set.
-- **Snapshot Ready:** Ensure all bound evidence is linked to its `SCHM-02` provenance.
-- **Output:** Satisfies `INTF-01` (Interface B).
+For each binding hypothesis:
+
+- demand ID must resolve;
+- evidence ID must resolve;
+- proposition identity and source lineage are preserved;
+- extraction confidence is not treated as authority;
+- authority ceiling remains distinct from candidate relationship;
+- evidence-domain difference does not imply independence;
+- corroborating evidence IDs must independently resolve;
+- question/answer restatement of one proposition is not double-counted as corroboration;
+- unsupported evidence cannot become Floor;
+- Floor requires explicit contradiction/adverse state.
+
+Any unresolvable identifier fails closed.
+
+Binding must not rewrite, upgrade, or clean the canonical evidence atom to make it fit the target. Candidate evidence is frozen as evidence; query-relative coordinates and snapshot language are downstream products.
+
+## Stage 6 — MARA Exhaust and Freeze
+
+Non-binding demand is preserved with its explicit reason (`unsupported`, `non_demonstrated`, `contradicted`, `insufficient_authority`) and is not automatically labeled a generalized candidate deficiency.
+
+The Frozen Snapshot must be self-contained for the renderer and include only downstream-approved candidate, demand, evidence, exhaust, geometry, lineage/corroboration, boundary identity, and execution state.
+
+The freeze hash is computed over canonical serialization of the materially relevant snapshot payload.
+
+## Projection Sufficiency
+
+Geometric Floor and projection sufficiency are separate. No sufficiency threshold is invented by this repair; unresolved policy is represented as unresolved.
+
+## Exit
+
+Stage 6 passes only after deterministic snapshot validation succeeds.

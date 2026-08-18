@@ -1,68 +1,73 @@
-# SCHM-02: Schema - Spatial Candidate DNA
+# SCHM-02: Spatial Candidate DNA
 
-## 1. The Evidence Registry (The Six Domains)
-All candidate evidence must be categorized into one of the following six closed domains. These are storage buckets, not projection faces.
+## 1. Candidate Core
 
-1. **Identity:** Bounded entity data (Location, contact, core roles).
-2. **Work History:** Professional tenure and organizational contributions.
-3. **Education & Technical Competency:** Academic and technical certifications/knowledge.
-4. **Creative Works & Projects:** Artifacts built, systems designed, products launched.
-5. **Psychometric & Cognitive Profile:** Behavioral tendencies and cognitive evidence.
-6. **Testimony & Observed Behavior:** References, publications, and third-party witness.
+Candidate Core is the immutable subject of Spatial Candidate DNA. It is not an evidence domain and not a projection wall.
 
-## 2. The Evidence Packet (The Atomic Unit)
-Evidence is stored in immutable packets.
+Candidate Core contains identity and biographical subject information required to establish who the evidence belongs to, including candidate identifier, name, location when available, and other bounded biographical fields.
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `evidence_id` | UUID | Unique identifier for the evidence object. |
-| `domain` | Enum | One of the 6 Domains above. |
-| `governing_verb`| String | The action the candidate performed (e.g., "Led," "Optimized"). |
-| `entity` | String | The object of the action (e.g., "15-person team," "ERP migration"). |
-| `provenance` | Object | Link to source (resume, LinkedIn, GitHub, transcript). |
-| `confidence` | Float | Extraction quality score (0.0 - 1.0). |
-| `authority` | Enum | `DIRECT` (built it), `CONTRIBUTORY` (helped), `STATIONARY` (witnessed). |
-| `timestamp` | Date | When the evidence was created/recorded. |
+## 2. Evidence Registry — Five Domains
 
-## 3. Projection Geometry (The Cube)
-When a query is initiated, MARA constructs a temporary projection box using the "Box Before Lens" rule.
+The Evidence Registry contains only candidate evidence and is closed to these five domains:
 
-- **Invariant References:**
-    - **Origin:** The Candidate (Absolute Zero).
-    - **Ceiling:** Maximum positive alignment/demonstration.
-    - **Floor:** Actual adverse or contradictory evidence (Failure/Misconduct).
-- **Active Variables:**
-    - **Semantic Walls:** MARA selects **4 active walls** from the 6-domain registry based on the specific Target Query.
+1. **Work History** (`WORK_HISTORY`)
+2. **Education & Technical Competency** (`EDUCATION_COMPETENCY`)
+3. **Creative Works & Projects** (`CREATIVE_WORKS`)
+4. **Psychometric & Cognitive** (`PSYCHOMETRICS`)
+5. **References / Publications / Testimony / Observed Behavior** (`TESTIMONY_BEHAVIOR`)
 
-## 4. Semantic Bands (The Measuring Grammar)
-Each wall measures distance from the Origin using a governed scale:
+`IDENTITY` is not a legal evidence domain.
 
-| Band | Meaning |
-| :--- | :--- |
-| **Ceiling** | Ideal demonstration of the demand. |
-| **Above Baseline**| Strong evidence exceeding neutral requirements. |
-| **Baseline** | Neutral/Presence; evidence exists but does not differentiate. |
-| **Below Baseline**| Weak demonstration or insufficient authority. |
-| **Floor** | Active contradiction or failure. |
+## 3. Canonical Evidence Packet
 
-**Crucial Rule:** Absence of evidence (Unsupported) keeps an item at the Baseline/Unresolved state. It does **not** move an item to the Floor.
+Every canonical evidence packet preserves distinct concepts rather than collapsing them into one confidence score:
 
-## 5. Sample Evidence Packet (Work History Domain)
-```json
-{
-  "evidence_id": "EV-992",
-  "domain": "WORK_HISTORY",
-  "governing_verb": "Orchestrated",
-  "entity": "Overseas vendor shipment schedule",
-  "authority": "DIRECT",
-  "provenance": {
-    "source": "Resume_2024.pdf",
-    "section": "Experience: Senior Ops Manager"
-  },
-  "confidence": 0.95,
-  "attributes": {
-    "scale": "50,000 units/mo",
-    "tools": ["NetSuite", "Excel"]
-  }
-}
-```
+- `evidence_id`
+- `domain`
+- `governing_verb`
+- `entity`
+- `propositionId`
+- `candidateRelationship`
+- `sourceClass`
+- `authorityCeiling`
+- `extractionConfidence`
+- `authorityVerified`
+- `sourceLineageId`
+- `independence`
+- `corroborationState`
+- `contradictionState`
+- `convergesWithEvidenceIds`
+- `provenance`
+- `attributes`
+
+Extraction confidence answers whether the source was extracted correctly. Authority ceiling constrains how strongly that evidence class may support an assertion. High extraction confidence does not imply high evidentiary authority.
+
+Different evidence domains do not automatically establish independent evidence. Independence is a source-lineage property.
+
+## 4. Candidate Relationship vs Source Authority
+
+The candidate's relationship to an event or artifact is separate from source authority. A candidate may be directly related to a fact while the source itself remains candidate-supplied or otherwise authority-limited.
+
+## 5. Geometry
+
+Ceiling and Floor remain invariant directions. Floor requires actual adverse or contradictory evidence; absence of evidence is not Floor.
+
+The current Semantic Band model is retained during this repair because its continued architectural role is a protected unresolved decision.
+
+The count and ownership of active semantic walls/receptors is also preserved as unresolved. This schema does not decide whether four active walls remain four under the corrected five-domain ontology.
+
+## 6. Projection Sufficiency
+
+Projection sufficiency is not geometric Floor. A minimum evidence/binding threshold, if later defined, must be represented separately from actual contradictory or adverse evidence.
+
+## 7. Runtime and Fixture Conformance
+
+The repaired runtime and repository fixtures must already conform to this canonical shape before MARA traversal.
+
+The following are invalid runtime representations:
+
+- an `IDENTITY` Evidence Registry key or evidence packet;
+- legacy evidence packets using combined `authority` / `confidence` fields;
+- implicit runtime migration that guesses source class, authority ceiling, evidentiary independence, proposition identity, or source lineage.
+
+Identity and biographical subject information must be supplied through Candidate Core. Evidence packets must supply the separated canonical fields defined above. Invalid legacy payloads fail schema/architecture validation rather than being silently upgraded.
