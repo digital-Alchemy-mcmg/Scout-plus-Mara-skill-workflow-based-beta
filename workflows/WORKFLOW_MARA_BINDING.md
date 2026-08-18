@@ -12,6 +12,10 @@ MARA accepts only a Query Bundle that passed SCOUT readiness and a candidate sub
 
 The repair does not decide receptor ownership/count.
 
+Canonical evidence must already have been populated through its domain-specific extraction contract before traversal. Domain extraction is candidate-centered: begin from Candidate Core, determine what the candidate can legitimately own in the selected evidence domain, then locate explicit source evidence supporting that exact candidate-owned proposition. Do not perform plane-first, keyword-first, or target-contaminated population.
+
+The current Education & Technical Competency extraction contract is `workflows/DOMAIN_EDUCATION_TECHNICAL_COMPETENCY.md`.
+
 ## Stage 5 — Binding
 
 For each binding hypothesis:
@@ -23,10 +27,13 @@ For each binding hypothesis:
 - authority ceiling remains distinct from candidate relationship;
 - evidence-domain difference does not imply independence;
 - corroborating evidence IDs must independently resolve;
+- question/answer restatement of one proposition is not double-counted as corroboration;
 - unsupported evidence cannot become Floor;
 - Floor requires explicit contradiction/adverse state.
 
 Any unresolvable identifier fails closed.
+
+Binding must not rewrite, upgrade, or clean the canonical evidence atom to make it fit the target. Candidate evidence is frozen as evidence; query-relative coordinates and snapshot language are downstream products.
 
 ## Stage 6 — MARA Exhaust and Freeze
 
