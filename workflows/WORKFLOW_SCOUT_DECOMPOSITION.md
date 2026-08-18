@@ -1,58 +1,41 @@
-# WORK-01: Workflow - SCOUT Decomposition
+# WORK-01: SCOUT Decomposition Workflow
 
-## 1. Overview
-The SCOUT workflow is a 7-step process designed to extract the functional "Existential Why" of a role while discarding recruitment marketing noise.
+SCOUT operationalizes Stages 1-3. It does not certify its own classification output.
 
-## 2. Operational Steps
+## Stage 1 — Intake & Filtration
 
-### Step 1: Ingestion & De-Commoditization (Stage 1)
-- **Action:** Extract all governing verbs.
-- **Filter:** Apply the `LOGC-01` Admission Rule.
-    - **Discard:** "fast-paced," "rockstar," "dynamic," "years of experience," and the bestowed Job Title.
-    - **Keep:** Physical, digital, relational, or authority-bearing actions (e.g., "coordinates," "builds," "reconciles").
-- **Output:** Cleaned Atomic Verb Set.
+- preserve raw source provenance;
+- separate operational matter from SCOUT Exhaust;
+- keep Negative Space distinct from positive demand;
+- do not use bestowed title as functional evidence.
 
-### Step 2: Core Purpose Extraction
-- **Action:** Identify the "Breakdown Scenario." Ask: *If this role vanished, what operational failure occurs?*
-- **Output:** 1–2 sentence statement focusing on **outputs** (e.g., "Ensures sample flow accuracy") rather than **inputs** (e.g., "Tracks samples").
+## Stage 2 — Reversible Decomposition
 
-### Step 3: Behavioral Profiling & Metaphor
-- **Action:** Convert tasks into observable behaviors.
-    - *Example:* "Prioritize requests" → "Handles by business criticality, not who asks loudest."
-- **Metaphor:** Identify the core role metaphor (e.g., "Control Tower," "Hub," "Mediator").
+Each admitted demand becomes a uniquely identified Demand Primitive with:
 
-### Step 4: Inductive Trait Matrix Construction
-- **Action:** Group verbs into clusters.
-- **Rule:** If a verb does not fit an existing cluster, **create a new one**. Do not force-fit (prevents Omission Bias).
-- **Structure:** For each cluster, define the Trait (neutral), Skill (learned), and Ability (applied outcome).
+- actor;
+- action;
+- object;
+- relationship;
+- mechanism;
+- effect;
+- demand type;
+- source provenance.
 
-### Step 5: Negative Space Definition
-- **Action:** Define what the role is **NOT**.
-- **Source:** Contrast against the Core Purpose and Title Misconceptions.
-- **Output:** Explicit "NOT X" assertions (e.g., "NOT a people manager," "NOT a strategist").
+Stage 2 fails if required fields or provenance are missing, or IDs collide.
 
-### Step 6: Classification Logic (The Diagnostic)
-- **Action:** Resolve NAICS (Industry) and O*NET/SOC (Occupation).
-- **Verification:** Perform the "Cold Match Test."
-    - *Test:* If NAICS is "Retail," but the role has no interaction with POS or customers, **reject** and find the "Hot Match" (e.g., "Apparel Manufacturing").
-- **Output:** Validated Diagnostic Anchors.
+## Stage 3 — Classification Diagnostic
 
-### Step 7: SBS Validation (QA)
-- **Action:** Compare the output side-by-side with alternative interpretations.
-- **Audit:** Ensure no material operational verb from the raw source was omitted.
+NAICS/O*NET reasoning occurs after operational decomposition.
 
-## 3. Reproduction Template (The Job Analysis Engine)
-To initiate this workflow, use the following functional prompt structure:
+The model may propose `HOT_MATCH` or `COLD_MATCH`, but the proposal must separately carry `validationStatus`.
 
-1. **Role:** Job Analysis Engine.
-2. **Task:** Deconstruct [JOB_POSTING] into 4 sections:
-    - **Section 1: Core Purpose** (Operational impact, 1-2 sentences).
-    - **Section 2: Target Narrative** (Behavioral descriptors, NO titles/credentials).
-    - **Section 3: Trait Matrix** (6 clusters: Trait, Skill, Ability, Keywords, SOC Code).
-    - **Section 4: Negative Space** (Negate roles/domains, not traits).
-3. **Constraints:** Apply `LOGC-01` (No fluff, no titles, no credentials).
+Without an actual external reference-validation mechanism, classification remains `UNVERIFIED`. SCOUT must not self-promote it to `VALIDATED`.
 
-## 4. Exit Criteria
-- `mara_ready = TRUE`
-- `discovery_rule_satisfied = TRUE`
-- Output satisfies `INTF-01` (Interface A).
+## MARA Readiness
+
+MARA handoff requires executable Stage 1-3 gates to pass. UI navigation cannot substitute for gate state.
+
+## Protected Boundary
+
+This workflow does not decide whether SCOUT or MARA owns receptor selection or whether four active receptors remain four under the five-domain ontology.

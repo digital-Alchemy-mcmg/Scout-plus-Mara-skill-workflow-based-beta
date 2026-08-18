@@ -1,53 +1,49 @@
-# CONT-01: Pipeline Stages (The Seven Gates)
+# CONT-01: Pipeline Stages — Seven Executable Gates
 
-This document defines the contractual sequence of operations. Every execution must pass these gates in order.
+The system preserves the seven-stage SCOUT → MARA → Artifact Model sequence. Stages are execution gates, not presentation tabs.
 
-## 1. Pipeline Overview
-The system moves matter through seven stages, transitioning responsibility between the three machines (SCOUT → MARA → Artifact Model).
+| Stage | Machine | Gate |
+|---|---|---|
+| 1. Intake & Filtration | SCOUT | Source accepted; SCOUT Exhaust separated from admitted operational matter. |
+| 2. Decomposition | SCOUT | Demand Primitives are reversible, uniquely identified, and provenance-complete. |
+| 3. Classification | SCOUT | NAICS/O*NET classification has an explicit validation state; MARA readiness requires validated anchors. |
+| 4. Query Insertion | MARA | Valid Query Bundle and canonical Candidate Core/five-domain substrate accepted. |
+| 5. Binding | MARA | Every binding references existing demand/evidence IDs; no fabricated provenance; unsupported is not negative. |
+| 6. Exhaust & Freeze | MARA | MARA Exhaust states preserved; snapshot boundary is self-contained and integrity-valid. |
+| 7. Projection | ARTIFACT | Renderer consumes only the Frozen Snapshot and all artifact traceability resolves within it. |
 
-| Stage | Name | Machine | Primary Operation |
-| :--- | :--- | :--- | :--- |
-| **1** | **Intake & Filtration** | SCOUT | Separation of pertinent data from noise. |
-| **2** | **Decomposition** | SCOUT | Atomic breakdown into Demand Primitives. |
-| **3** | **Classification** | SCOUT | NAICS/O*NET hot-match diagnostics. |
-| **4** | **Query Insertion** | MARA | Formulation of demand as a receptor set. |
-| **5** | **Binding** | MARA | Traversal of Candidate DNA vs. Demand. |
-| **6** | **Exhaust Formation** | MARA | Analysis of unsupported/contradicted demand. |
-| **7** | **Projection** | ARTIFACT | Rendering of frozen snapshot to final form. |
+## Gate Ordering
 
-## 2. Stage Details & Gates
+A later stage cannot be made valid by navigating to it. The UI may inspect a blocked gate, but it may not use navigation to satisfy prerequisites.
 
-### Stage 1: Intake & Filtration
-- **Action:** Apply the "Admission Rule." Reject marketing fluff, job titles as evidence, and hiring filters.
-- **Exit Gate:** All admitted material must have functional/operational consequence.
-- **Exhaust:** Generates **SCOUT Exhaust** (Discarded noise).
+If an upstream source changes or a stage fails, downstream binding/snapshot/artifact state must be invalidated.
 
-### Stage 2: Decomposition
-- **Action:** Break admitted text into "Demand Molecules" (Actor, Action, Object, etc.).
-- **Exit Gate:** Every explicit operational verb must be represented. (Omission Control).
+## Stage 3 Validation
 
-### Stage 3: Classification (Comprehension Diagnostic)
-- **Action:** Resolve NAICS and O*NET/SOC codes.
-- **Exit Gate:** Verification that the system understands the "economic neighborhood." Cold matches must be rejected.
+Model classification and external validation are distinct. `HOT_MATCH` is a model hypothesis until an actual validation source verifies it. No reference layer is fabricated by this repair.
 
-### Stage 4: Query Insertion
-- **Action:** The Target Compiler (SCOUT) hands the Demand Primitives to MARA. MARA selects the 4 active semantic walls for the projection box.
-- **Exit Gate:** The query bundle must be relational (Person x Attribute).
+## Stage 5 Negative Evidence Rule
 
-### Stage 5: Binding (Traversal)
-- **Action:** MARA traverses the immutable candidate substrate.
-- **Exit Gate:** Determination of relationship: Supported, Contradicted, or Unsupported.
+`FLOOR` requires explicit contradictory/adverse evidence. Unsupported or missing evidence cannot create a Floor placement.
 
-### Stage 6: Exhaust Formation
-- **Action:** Isolate the residue of the legitimate query that did not bind.
-- **Exit Gate:** Reasons for non-binding (e.g., `unsupported`, `adverse`) must be preserved.
-- **Exhaust:** Generates **MARA Exhaust** (Candidate gaps).
+## Stage 6 MARA Exhaust
 
-### Stage 7: Projection
-- **Action:** Freeze the evidence boundary. Render the snapshot into a human artifact.
-- **Exit Gate:** Traceability—every sentence must link back to source evidence.
+MARA Exhaust is the residue of legitimate demand that did not bind under the current evidence boundary. It preserves reasons such as:
 
-## 3. The Dual Exhaust Rule
-The pipeline produces two distinct types of "waste" matter that must never be conflated:
-1. **SCOUT Exhaust (Stage 1):** Irrelevant source material. It is not a candidate deficiency.
-2. **MARA Exhaust (Stage 6):** Valid job requirements not met by the candidate. This *is* a candidate deficiency/gap.
+- `unsupported`
+- `non_demonstrated`
+- `contradicted`
+- `insufficient_authority`
+
+A non-bind is not automatically a generalized candidate deficiency.
+
+## Protected Unresolved Decisions
+
+This repair does not decide:
+
+- whether four active semantic walls remain four;
+- whether Semantic Bands remain long-term architecture;
+- exact receptor-selection ownership;
+- any formal projection-sufficiency threshold.
+
+Those dependencies remain explicit rather than being guessed.
